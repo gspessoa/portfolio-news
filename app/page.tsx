@@ -16,7 +16,7 @@ export default function Home() {
         const res = await fetch(
           `https://finnhub.io/api/v1/company-news?symbol=${ticker}&from=${getDate(
             3
-          )}&to=${getDate(0)}&token=d6h299hr01qnjncn3s10d6h299hr01qnjncn3s1g`
+          )}&to=${getDate(0)}&token=${process.env.NEXT_PUBLIC_FINNHUB_API_KEY}`
         );
         const data = await res.json();
 
