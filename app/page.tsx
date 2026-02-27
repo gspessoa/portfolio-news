@@ -1,65 +1,112 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 
 const TICKERS = ["ASML", "ADBE", "PYPL"]; // muda aqui
 
 export default function Home() {
-  const [news, setNews] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [brief, setBrief] = useState<string>("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function fetchNews() {
-      const allNews: any[] = [];
+  async function generateBrief() {
+    setLoading(true);
+    setError(null);
 
-      for (const ticker of TICKERS) {
-        const res = await fetch(
-          `https://finnhub.io/api/v1/company-news?symbol=${ticker}&from=${getDate(
-            3
-          )}&to=${getDate(0)}&token=${process.env.NEXT_PUBLIC_FINNHUB_API_KEY}`
-        );
-        const data = await res.json();
+    try {
+      const res = await fetch("/api/brief", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tickers: TICKERS, daysBack: 3 }),
+      });
 
-        const tagged = data.slice(0, 5).map((item: any) => ({
-          ...item,
-          ticker,
-        }));
-
-        allNews.push(...tagged);
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`Erro no /api/brief (${res.status}): ${text}`);
       }
 
-      setNews(allNews.sort((a, b) => b.datetime - a.datetime));
+      const data = await res.json();
+      setBrief(data.brief ?? "");
+    } catch (e: any) {
+      setError(e?.message ?? "Erro desconhecido ao gerar brief");
+    } finally {
       setLoading(false);
     }
-
-    fetchNews();
-  }, []);
-
-  function getDate(daysAgo: number) {
-    const d = new Date();
-    d.setDate(d.getDate() - daysAgo);
-    return d.toISOString().split("T")[0];
   }
 
-  if (loading) return <p>Loading...</p>;
+  const hasBrief = useMemo(() => brief.trim().length > 0, [brief]);
 
   return (
-    <div style={{ padding: "40px", fontFamily: "Arial" }}>
-      <h1>Portfolio News</h1>
-      {news.map((item, i) => (
-        <div key={i} style={{ marginBottom: "20px" }}>
-          <strong>{item.ticker}</strong>
-          <p>
-            <a href={item.url} target="_blank">
-              {item.headline}
-            </a>
+    <div
+      style={{
+        padding: 32,
+        fontFamily: "Arial, sans-serif",
+        maxWidth: 980,
+        margin: "0 auto",
+      }}
+    >
+      <header style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
+        <div>
+          <h1 style={{ margin: 0 }}>Portfolio Brief</h1>
+          <p style={{ marginTop: 8, color: "#555" }}>
+            Sumário dos últimos 3 dias • {TICKERS.join(", ")}
           </p>
-          <small>
-            {new Date(item.datetime * 1000).toLocaleString()} — {item.source}
-          </small>
-          <hr />
         </div>
-      ))}
+
+        <button
+          onClick={generateBrief}
+          disabled={loading}
+          style={{
+            padding: "10px 14px",
+            borderRadius: 10,
+            border: "1px solid #ddd",
+            background: loading ? "#f3f3f3" : "#111",
+            color: loading ? "#666" : "#fff",
+            cursor: loading ? "not-allowed" : "pointer",
+            fontWeight: 600,
+          }}
+        >
+          {loading ? "A gerar…" : "Gerar Brief"}
+        </button>
+      </header>
+
+      {error && (
+        <div
+          style={{
+            marginTop: 16,
+            padding: 12,
+            background: "#ffecec",
+            border: "1px solid #ffb3b3",
+            borderRadius: 10,
+          }}
+        >
+          <strong>Erro:</strong> {error}
+        </div>
+      )}
+
+      <section
+        style={{
+          marginTop: 18,
+          border: "1px solid #eee",
+          borderRadius: 14,
+          padding: 16,
+          background: "white",
+        }}
+      >
+        <h2 style={{ marginTop: 0 }}>Brief</h2>
+
+        {!hasBrief ? (
+          <p style={{ color: "#666" }}>
+            Clica em <strong>Gerar Brief</strong> para criar um sumário das notícias do teu portfólio.
+          </p>
+        ) : (
+          <div style={{ whiteSpace: "pre-wrap", lineHeight: 1.45 }}>{brief}</div>
+        )}
+      </section>
+
+      <section style={{ marginTop: 18, color: "#666", fontSize: 12 }}>
+        Dica: se quiseres, a seguir podemos mostrar também as fontes (links) por baixo do sumário para validação rápida.
+      </section>
     </div>
   );
 }
