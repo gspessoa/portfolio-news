@@ -49,37 +49,25 @@ export async function POST(req: Request) {
   }
 
   // 2) Summarize with OpenAI
-  const input = [
-    {
-      role: "system",
-      content:
-        "És o Gervásio. Faz um brief de notícias de portfólio. Não dês aconselhamento financeiro. Sê conciso, factual, e útil para monitorização.",
-    },
-    {
-      role: "user",
-      content: JSON.stringify({
-        period: `últimos ${daysBack} dias`,
-        tickers,
-        newsByTicker,
-        output_format: {
-          portfolio_summary: [
-            "3-6 bullets com temas recorrentes e riscos comuns",
-            "Lista de tickers com maior atividade/notícias relevantes",
-          ],
-          per_ticker: {
-            bullets: "3-6 bullets por ticker (o que aconteceu + porquê importa)",
-            watch_next: "1-2 bullets: o que vigiar a seguir",
-            impact: "🟢/🟡/🔴 (baixo/médio/alto) com 1 frase de justificação",
-          },
-        },
-      }),
-    },
-  ];
+const prompt = `
+És o Gervásio. Faz um brief de notícias de portfólio.
+Regras:
+- Não dês aconselhamento financeiro.
+- Sê factual, conciso e orientado a monitorização.
+- Não inventes: usa apenas as notícias fornecidas.
+- Se um ticker não tiver notícias relevantes, diz "Sem notícias relevantes".
 
-  const resp = await client.responses.create({
-    model: "gpt-5.2",
-    input,
-  });
+Período: últimos ${daysBack} dias
+Tickers: ${tickers.join(", ")}
 
-  return NextResponse.json({ brief: resp.output_text });
+Notícias (JSON):
+${JSON.stringify(newsByTicker)}
+`;
+
+const resp = await client.responses.create({
+  model: "gpt-5.2",
+  input: prompt,
+});
+
+return NextResponse.json({ brief: resp.output_text });
 }
